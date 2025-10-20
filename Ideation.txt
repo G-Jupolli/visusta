@@ -1,0 +1,30 @@
+
+
+
+
+Here I am trying to recreate this video's processing steps:
+https://www.youtube.com/watch?v=gg40RWiaHRY
+
+I'm planning on having a different use case.
+The video is a process of making a game shader than can display as ASCII art.
+The main use I want for this is to generate the actual text strings to be
+  displayed on a site.
+I'll have to do some post mortem on if this was worth it.
+
+The video is considering a text size to transform the image into.
+I may take the same 8x8 font size and use a mono font for display.
+
+Filters I can make for the process:
+ - Down scaler
+ - De-saturation (greyscale)
+    - Into Discrete
+    - Into Chars
+ - Edge Detection Options:
+    1. Sobel Filter ( What the video is using, don't have distance data in static image)
+    2. Canny Edge Detector
+    3. Difference Of Gaussians
+    - Video recommends Sobel as it has direction data of gradient
+
+
+Additional Filters:
+ - Dither
