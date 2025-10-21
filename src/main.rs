@@ -26,7 +26,7 @@ fn _try_img() -> anyhow::Result<()> {
     println!("Up scaled");
     println!("Now save as scaled");
 
-    let _ = up.save("scaled.jpg")?;
+    up.save("scaled.jpg")?;
 
     Ok(())
 }

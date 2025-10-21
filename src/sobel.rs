@@ -85,7 +85,7 @@ impl SobelFilter {
                     let normal = ((mag_sq / MAX_SOBEL_SQ) * 255.0).min(255.0) as u8;
 
                     let out_idx = x * 3;
-                    row[out_idx + 0] = normal;
+                    row[out_idx] = normal;
                     row[out_idx + 1] = normal;
                     row[out_idx + 2] = normal;
                 }
@@ -134,7 +134,7 @@ impl SobelFilter {
                         // row[out_idx + 0] = gx.abs().min(255) as u8;
                         // row[out_idx + 2] = gy.abs().min(255) as u8;
 
-                        row[out_idx + 0] = (gx * 4).abs().min(255) as u8;
+                        row[out_idx] = (gx * 4).abs().min(255) as u8;
                         row[out_idx + 2] = gy.abs().min(255) as u8;
 
                         // let dir = atan2f(g_y, g_x);

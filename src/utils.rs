@@ -46,9 +46,7 @@ impl LuminanceFilter {
                 let start = chunk_idx * chunk_size;
                 let end = start + lum_slice.len();
 
-                let mut out_idx = 0;
-
-                for pix in start..end {
+                for (out_idx, pix) in (start..end).enumerate() {
                     let base = pix * 3;
 
                     let r = rgb_buf[base] as i32;
@@ -56,7 +54,6 @@ impl LuminanceFilter {
                     let b = rgb_buf[base + 2] as i32;
 
                     lum_slice[out_idx] = ((77 * r + 150 * g + 29 * b) / 256) as u8;
-                    out_idx += 1;
                 }
             });
 
@@ -77,9 +74,7 @@ impl LuminanceFilter {
                 let start = chunk_idx * chunk_size;
                 let end = start + lum_slice.len();
 
-                let mut out_idx = 0;
-
-                for pix in start..end {
+                for (out_idx, pix) in (start..end).enumerate() {
                     let base = pix * 3;
 
                     let r = rgb_buf[base] as i32;
@@ -87,7 +82,6 @@ impl LuminanceFilter {
                     let b = rgb_buf[base + 2] as i32;
 
                     lum_slice[out_idx] = ((77 * r + 150 * g + 29 * b) / 256) as u8;
-                    out_idx += 1;
                 }
             });
 
@@ -106,9 +100,7 @@ impl LuminanceFilter {
                 let start = chunk_idx * chunk_size;
                 let end = start + lum_slice.len();
 
-                let mut out_idx = 0;
-
-                for pix in start..end {
+                for (out_idx, pix) in (start..end).enumerate() {
                     let base = pix * 3;
 
                     let r = rgb_buf[base] as i32;
@@ -116,7 +108,6 @@ impl LuminanceFilter {
                     let b = rgb_buf[base + 2] as i32;
 
                     lum_slice[out_idx] = ((77 * r + 150 * g + 29 * b) / 256) as u8;
-                    out_idx += 1;
                 }
             });
 
@@ -135,9 +126,7 @@ impl LuminanceFilter {
                 let start = chunk_idx * chunk_size;
                 let end = start + lum_slice.len();
 
-                let mut out_idx = 0;
-
-                for pix in start..end {
+                for (out_idx, pix) in (start..end).enumerate() {
                     let base = pix * 3;
 
                     let r = rgb_buf[base] as i32;
@@ -145,7 +134,6 @@ impl LuminanceFilter {
                     let b = rgb_buf[base + 2] as i32;
 
                     lum_slice[out_idx] = ((77 * r + 150 * g + 29 * b) / 256) as u8;
-                    out_idx += 1;
                 }
             });
 
@@ -164,9 +152,7 @@ impl LuminanceFilter {
                 let start = chunk_idx * chunk_size;
                 let end = start + lum_slice.len();
 
-                let mut out_idx = 0;
-
-                for pix in start..end {
+                for (out_idx, pix) in (start..end).enumerate() {
                     let base = pix * 3;
 
                     let r = rgb_buf[base] as i32;
@@ -174,7 +160,6 @@ impl LuminanceFilter {
                     let b = rgb_buf[base + 2] as i32;
 
                     lum_slice[out_idx] = ((77 * r + 150 * g + 29 * b) / 256) as u8;
-                    out_idx += 1;
                 }
             });
 
@@ -193,9 +178,7 @@ impl LuminanceFilter {
                 let start = chunk_idx * chunk_size;
                 let end = start + lum_slice.len();
 
-                let mut out_idx = 0;
-
-                for pix in start..end {
+                for (out_idx, pix) in (start..end).enumerate() {
                     let base = pix * 3;
 
                     let r = rgb_buf[base] as i32;
@@ -203,7 +186,6 @@ impl LuminanceFilter {
                     let b = rgb_buf[base + 2] as i32;
 
                     lum_slice[out_idx] = ((77 * r + 150 * g + 29 * b) / 256) as u8;
-                    out_idx += 1;
                 }
             });
 
