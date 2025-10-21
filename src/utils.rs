@@ -34,6 +34,25 @@ impl LuminanceFilter {
         luminance_buff
     }
 
+    pub fn _rgb_luminance_i32(rgb_buf: &[u8], width: usize, height: usize) -> Vec<i32> {
+        let mut luminance_buff = vec![0i32; width * height];
+
+        luminance_buff
+            .par_iter_mut()
+            .enumerate()
+            .for_each(|(idx, luminance)| {
+                let base = idx * 3;
+
+                let r = rgb_buf[base] as i32;
+                let g = rgb_buf[base + 1] as i32;
+                let b = rgb_buf[base + 2] as i32;
+
+                *luminance = (77 * r + 150 * g + 29 * b) / 256;
+            });
+
+        luminance_buff
+    }
+
     pub fn rgb_luminance_u8(rgb_buf: &[u8], width: usize, height: usize) -> LuminanceBuff {
         let mut luminance_buff = vec![0u8; width * height];
 
