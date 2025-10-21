@@ -783,9 +783,6 @@ name = "rgb"
 version = "0.8.52"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c6a884d2998352bb4daf0183589aec883f16a6da1f4dde84d8e2e9a5409a1ce"
-dependencies = [
- "bytemuck",
-]
 
 [[package]]
 name = "rustversion"
@@ -986,9 +983,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "image",
- "imgref",
  "rayon",
- "rgb",
 ]
 
 [[package]]
