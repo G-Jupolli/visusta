@@ -5,7 +5,11 @@ use image::{
     imageops::FilterType::{self},
 };
 
-use crate::{sobel::SobelFilter, utils::LuminanceFilter};
+use crate::{
+    gaussians::{GaussianBuilder, GaussianFilter},
+    sobel::SobelFilter,
+    utils::LuminanceFilter,
+};
 
 mod gaussians;
 // mod pixel;
@@ -21,7 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // println!("Gauss : {gaussed:?}");
 
-    let path = Path::new("owl.jpg");
+    let path = Path::new("mountain.jpg");
     let img = image::open(path)?
         // Sizings
         // .resize(1280, 720, FilterType::Lanczos3)
@@ -36,19 +40,38 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let raw = rgb.as_raw();
 
-    let out = LuminanceFilter::rgb_luminance_u8(raw, width, height);
+    let out = LuminanceFilter::rgb_luminance_u8(raw, width, height)
+        // To flip on y axis
+        // .flip_y()
+    //check
+    ;
 
-    // let gauss_out = GaussianFilter::apply_gaussian(luminance, width, height, 0.5, 1.0);
-    // let out = GaussianFilter::apply_gaussian(luminance, width, height, 1.0, 1.75);
+    let gaussian_kernel = GaussianBuilder::create(0.5, 2.25)
+        .scalar(0.5)
+        .cutoff(32.00)
+        .build_kernel();
+
+    let out =
+        GaussianFilter::gaussian_on_luminance(out, gaussian_kernel)
+        // Maybe need to raw
+            .to_raw_rgb()
+            // Check
+            // .boolean_mask_rgb(raw)
+            // check
+        ;
+    // let out = LuminanceFilter::rgb_luminance_u8(&out, width, height)
+    // To flip on y axis
+    // .flip_y()
+    //check
 
     // let buff_move = LuminanceBuff { buff: out };
 
-    let out = SobelFilter::to_direction_colour(&out, width, height);
+    // let out = SobelFilter::to_direction_colour(&out, width, height);
 
     let res =
         RgbImage::from_raw(width as u32, height as u32, out).expect("Should be able to do this");
 
-    let _ = res.save("owl.png");
+    let _ = res.save("mountain_gauss_s0p5_c32p00.png");
 
     Ok(())
 }

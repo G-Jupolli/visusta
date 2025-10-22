@@ -125,7 +125,7 @@ impl SobelFilter {
                     let gy = (sw + s * 2 + se) - (nw + n * 2 + ne);
 
                     let mag_sq = (gx * gx + gy * gy) as f32;
-                    let normal = ((mag_sq / MAX_SOBEL_SQ) * 255.0 * 4.0).min(255.0) as u8;
+                    let normal = ((mag_sq / MAX_SOBEL_SQ) * 255.0).min(255.0) as u8;
 
                     if normal < 20 {
                         continue;
@@ -136,7 +136,10 @@ impl SobelFilter {
 
                     row[out_idx + 0] = (gx * 2).abs().min(255) as u8;
                     // row[out_idx + 2] = gy.abs().min(255) as u8;
-                    row[out_idx + 1] = gy.abs().min(255) as u8;
+                    // row[out_idx + 1] = gy.abs().min(255) as u8;
+                    row[out_idx + 1] = normal.checked_mul(2).unwrap_or(255);
+                    row[out_idx + 2] = (gy * 2).abs().min(255) as u8;
+                    // row[out_idx + 2] = normal
 
                     // row[out_idx] = (gx * 4).abs().min(255) as u8;
                     // row[out_idx + 2] = gy.abs().min(255) as u8;
@@ -146,11 +149,10 @@ impl SobelFilter {
                     // row[out_idx + 1] = (normal as f32 * 0.8) as u8;
                     // row[out_idx + 2] = normal.checked_mul(3) / 2;
 
-                    if let Some(fin) = normal.checked_mul(3) {
-                        row[out_idx + 2] = fin / 2;
-                    } else {
-                        row[out_idx + 2] = normal
-                    }
+                    // if let Some(fin) = normal.checked_mul(3) {
+                    //     row[out_idx + 2] = fin / 2;
+                    // } else {
+                    // }
                     // }
                 }
             });
@@ -158,7 +160,11 @@ impl SobelFilter {
         sobel_buff
     }
 
-    pub fn to_direction_colour_i32(luminance_buff: &[i32], width: usize, height: usize) -> Vec<u8> {
+    pub fn _to_direction_colour_i32(
+        luminance_buff: &[i32],
+        width: usize,
+        height: usize,
+    ) -> Vec<u8> {
         // let luminance_buff = luminance_buff.buff;
 
         let mut sobel_buff = vec![0u8; width * height * 3];

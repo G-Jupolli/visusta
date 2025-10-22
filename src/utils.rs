@@ -12,6 +12,8 @@ pub struct LuminanceFilter;
 
 pub struct LuminanceBuff {
     pub buff: Vec<u8>,
+    pub width: usize,
+    pub height: usize,
 }
 
 impl LuminanceFilter {
@@ -78,6 +80,8 @@ impl LuminanceFilter {
 
         LuminanceBuff {
             buff: luminance_buff,
+            width,
+            height,
         }
     }
 
@@ -209,5 +213,88 @@ impl LuminanceFilter {
             });
 
         luminance_buff
+    }
+}
+
+impl LuminanceBuff {
+    pub fn flip_y(&self) -> LuminanceBuff {
+        let mut out_buff = vec![0u8; self.buff.len()];
+
+        out_buff
+            .par_chunks_mut(self.width)
+            .enumerate()
+            .for_each(|(y, row)| {
+                let mut left = y * self.width;
+                let mut right = left + self.width - 1;
+
+                let mut step = 0;
+
+                while right >= left {
+                    row[step] = self.buff[right];
+                    row[(self.width - step) - 1] =
+                        //check
+                        self.buff[left];
+
+                    left += 1;
+                    right -= 1;
+                    step += 1;
+                }
+            });
+
+        LuminanceBuff {
+            buff: out_buff,
+            width: self.width,
+            height: self.height,
+        }
+    }
+
+    pub fn to_raw_rgb(self) -> Vec<u8> {
+        let mut out = vec![0u8; self.width * self.height * 3];
+
+        out.par_chunks_mut(self.width * 3)
+            .enumerate()
+            .for_each(|(y, row)| {
+                let start_x = y * self.width;
+                let end_x = start_x + self.width;
+
+                for (ix, x) in (start_x..end_x).enumerate() {
+                    let ix = ix * 3;
+                    let val = self.buff[x];
+
+                    row[ix] = val;
+                    row[ix + 1] = val;
+                    row[ix + 2] = val;
+                }
+            });
+
+        out
+    }
+
+    pub fn boolean_mask_rgb(self, raw_rgb: &Vec<u8>) -> Vec<u8> {
+        // assert!(
+        //     self.width == mask.width && self.height == mask.height,
+        //     "LuminanceBuffs must have the same dimensions"
+        // );
+
+        let mut out = vec![0u8; raw_rgb.len()];
+
+        out.par_chunks_mut(self.width * 3)
+            .enumerate()
+            .for_each(|(y, row)| {
+                let start_x = y * self.width;
+                let end_x = start_x + (self.width);
+
+                for (ix, x) in (start_x..end_x).enumerate() {
+                    if self.buff[x] > 0 {
+                        let out_idx = ix * 3;
+
+                        row[out_idx] = raw_rgb[start_x * 3 + out_idx];
+                        row[out_idx + 1] = raw_rgb[start_x * 3 + out_idx + 1];
+                        row[out_idx + 2] = raw_rgb[start_x * 3 + out_idx + 2];
+                    }
+                }
+            });
+
+        out
     }
 }
