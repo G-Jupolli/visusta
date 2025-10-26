@@ -92,6 +92,8 @@ impl GaussianBuilder {
 
         if let Some(scalar) = self.scalar {
             for idx in 0..9usize {
+                // res[idx] = ((1.0 + scalar) * (gaussian_a[idx] / sum_a))
+                //     - (scalar * (gaussian_b[idx] / sum_b));
                 res[idx] = (gaussian_a[idx] / sum_a) - (scalar * (gaussian_b[idx] / sum_b));
             }
         } else {
@@ -212,11 +214,12 @@ impl GaussianFilter {
                     acc += luminance_buff[(y + 1) * width + (x + 1)] as f32 * kernel[8];
 
                     // Just using this as a binary cutoff right now
-                    if kernel_data.cutoff.is_some_and(|cutoff| acc < cutoff) {
+                    if kernel_data.cutoff.is_some_and(|cutoff| acc > cutoff) {
+                        row[x] = 255u8;
                         continue;
                     }
 
-                    row[x] = 255u8;
+                    // row[x] = min((acc * 12.0) as u32, 255u32) as u8;
                 }
             });
 

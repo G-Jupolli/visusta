@@ -6,4 +6,5 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.100"
 image = { version = "0.25.8", features = ["rayon", "serde"] }
+libm = "0.2.15"
 rayon = "1.11.0"
