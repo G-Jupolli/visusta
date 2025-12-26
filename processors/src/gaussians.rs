@@ -2,9 +2,12 @@ use rayon::{
     iter::{IndexedParallelIterator, ParallelIterator},
     slice::ParallelSliceMut,
 };
-use std::f32::consts::PI;
+use std::{cmp::min, f32::consts::PI};
 
-use crate::utils::LuminanceBuff;
+use crate::{
+    composer::{ProcessorPage, ProcessorPageSignal},
+    utils::LuminanceBuff,
+};
 
 type GaussianKernel = [f32; 9];
 
@@ -227,6 +230,62 @@ impl GaussianFilter {
             buff: gaussian_buff,
             width,
             height,
+        }
+    }
+
+    pub fn process_page_binary(
+        data: &ProcessorPage,
+        kernel_data: GaussianKernelData,
+    ) -> ProcessorPage {
+        assert_eq!(
+            data.signal,
+            ProcessorPageSignal::Luminance,
+            "process_page received non luminance page"
+        );
+
+        let width = data.width;
+        let height = data.height;
+        let kernel = kernel_data.kernel;
+
+        let mut gaussian_buff = vec![0u8; data.data.len()];
+        gaussian_buff
+            .par_chunks_mut(width)
+            .enumerate()
+            .for_each(|(y, row)| {
+                if y == 0 || y == height - 1 {
+                    return;
+                }
+
+                for x in 1..(width - 1) {
+                    let mut acc = 0f32;
+
+                    acc += data.data[(y - 1) * width + (x - 1)] as f32 * kernel[0];
+                    acc += data.data[(y - 1) * width + x] as f32 * kernel[1];
+                    acc += data.data[(y - 1) * width + (x + 1)] as f32 * kernel[2];
+
+                    acc += data.data[y * width + (x - 1)] as f32 * kernel[3];
+                    acc += data.data[y * width + x] as f32 * kernel[4];
+                    acc += data.data[y * width + (x + 1)] as f32 * kernel[5];
+
+                    acc += data.data[(y + 1) * width + (x - 1)] as f32 * kernel[6];
+                    acc += data.data[(y + 1) * width + x] as f32 * kernel[7];
+                    acc += data.data[(y + 1) * width + (x + 1)] as f32 * kernel[8];
+
+                    // Just using this as a binary cutoff right now
+                    if kernel_data.cutoff.is_some_and(|cutoff| acc > cutoff) {
+                        row[x] = 255u8;
+                        continue;
+                    }
+
+                    row[x] = min((acc * 12.0) as u32, 255u32) as u8;
+                }
+            });
+
+        ProcessorPage {
+            signal: ProcessorPageSignal::Luminance,
+            width,
+            height,
+            data: gaussian_buff,
         }
     }
 

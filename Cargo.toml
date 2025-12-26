@@ -1,10 +1,14 @@
-[package]
-name = "visusta"
-version = "0.1.0"
-edition = "2024"
+[workspace]
+members = ["visusta",
+    "visusta-core",
+    "visusta-cpu",
+    "visusta-gpu",
+]
+resolver = "3"
 
-[dependencies]
+[workspace.dependencies]
 anyhow = "1.0.100"
 image = { version = "0.25.8", features = ["rayon", "serde"] }
 libm = "0.2.15"
 rayon = "1.11.0"
+log = "0.4.29"

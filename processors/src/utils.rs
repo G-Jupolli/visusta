@@ -1,5 +1,7 @@
 use rayon::prelude::*;
 
+use crate::composer::{ProcessorPage, ProcessorPageSignal};
+
 /// Extracts luminance from rgb vec to single pixel i32 vec
 ///
 /// e.g. 3 pixel input to 3 pixel output
@@ -14,6 +16,24 @@ pub struct LuminanceBuff {
     pub buff: Vec<u8>,
     pub width: usize,
     pub height: usize,
+}
+
+#[derive(Debug)]
+pub struct LuminanceAsciiMeta {
+    font_size: usize,
+    chars: [u8; 10],
+}
+
+impl LuminanceAsciiMeta {
+    pub fn create(font_size: usize, chars: Option<[u8; 10]>) -> LuminanceAsciiMeta {
+        LuminanceAsciiMeta {
+            font_size,
+            chars: chars.unwrap_or([
+                ' ' as u8, '.' as u8, ';' as u8, 'c' as u8, 'o' as u8, 'P' as u8, '0' as u8,
+                '?' as u8, '@' as u8, '#' as u8,
+            ]),
+        }
+    }
 }
 
 impl LuminanceFilter {
@@ -45,6 +65,43 @@ impl LuminanceFilter {
         }
     }
 
+    pub fn rgb_luminance_page(raw: &ProcessorPage, scale: f32) -> ProcessorPage {
+        assert_eq!(
+            raw.signal,
+            ProcessorPageSignal::RGB,
+            "rgb_luminance_page received non RGB buff"
+        );
+
+        let mut luminance_buff = vec![0u8; raw.width * raw.height];
+
+        luminance_buff
+            .par_chunks_mut(raw.width)
+            .enumerate()
+            .for_each(|(chunk_idx, lum_slice)| {
+                let start = chunk_idx * raw.width;
+                let end = start + raw.width;
+
+                for (out_idx, pix) in (start..end).enumerate() {
+                    let base = pix * 3;
+
+                    let r = raw.data[base] as i32;
+                    let g = raw.data[base + 1] as i32;
+                    let b = raw.data[base + 2] as i32;
+
+                    let luminance = (77 * r + 150 * g + 29 * b) as f32 * scale;
+
+                    lum_slice[out_idx] = (luminance / 256.0) as u8;
+                }
+            });
+
+        ProcessorPage {
+            signal: ProcessorPageSignal::Luminance,
+            width: raw.width,
+            height: raw.height,
+            data: luminance_buff,
+        }
+    }
+
     pub fn rgb_luminance_u8_scaled(
         rgb_buf: &[u8],
         width: usize,
@@ -69,7 +126,7 @@ impl LuminanceFilter {
 
                     let luminance = (77 * r + 150 * g + 29 * b) as f32 * scale;
 
-                    lum_slice[out_idx] = (luminance / 255.0) as u8;
+                    lum_slice[out_idx] = (luminance / 256.0) as u8;
                 }
             });
 
@@ -77,6 +134,74 @@ impl LuminanceFilter {
             buff: luminance_buff,
             width,
             height,
+        }
+    }
+
+    pub fn page_to_ascii(page: &ProcessorPage, meta: LuminanceAsciiMeta) -> ProcessorPage {
+        assert_eq!(
+            page.signal,
+            ProcessorPageSignal::Luminance,
+            "page_to_direction_colour received non luminance page"
+        );
+
+        let width = page.width.div_ceil(meta.font_size);
+        let height = page.height.div_ceil(meta.font_size);
+
+        let mut scaled_buff = vec![0u8; width * height];
+
+        scaled_buff
+            .par_chunks_mut(width)
+            .enumerate()
+            .for_each(|(y, row)| {
+                // This maps to the to left pixel at the start of this
+                //  parallelized row
+                let start_idx = (y * meta.font_size) * page.width;
+
+                for (x, x_item) in row.iter_mut().enumerate() {
+                    // bring cursor to the top left pixel of the group
+                    let mut x_idx = start_idx + (meta.font_size * x);
+
+                    let mut sum_luminance: usize = 0;
+                    let mut count: usize = 0;
+
+                    // From the top left corner, we scan ( font_size - 1 ) pixels
+                    //  down and ( font_size - 1 ) pixels to the right
+                    for _ in 0..meta.font_size {
+                        for x in 0..meta.font_size {
+                            if x_idx + x >= page.data.len() {
+                                break;
+                            }
+                            sum_luminance += page.data[x_idx + x] as usize;
+                            count += 1;
+                        }
+                        // Bring x_idx down to the leftmost pixel of the next row
+                        x_idx += page.width;
+                    }
+
+                    // Handle edge case where count might be 0
+                    if count == 0 {
+                        continue;
+                    }
+
+                    let luminance_avg = (sum_luminance / count) as u8;
+
+                    let levels = 10;
+                    let step = 255 / levels;
+
+                    let mut discrete = luminance_avg / step;
+                    if discrete >= levels {
+                        discrete = levels - 1;
+                    }
+
+                    *x_item = meta.chars[discrete as usize];
+                }
+            });
+
+        ProcessorPage {
+            signal: ProcessorPageSignal::Char,
+            width,
+            height,
+            data: scaled_buff,
         }
     }
 }
@@ -208,6 +333,11 @@ impl LuminanceBuff {
                         x_idx += self.width;
                     }
 
+                    // Handle edge case where count might be 0
+                    if count == 0 {
+                        continue;
+                    }
+
                     let luminance_avg = (sum_luminance / count) as u8;
 
                     let levels = 10;
@@ -229,6 +359,16 @@ impl LuminanceBuff {
                         7 => '?',
                         8 => '@',
                         9 => '#',
+                        // 9 => ' ',
+                        // 8 => '.',
+                        // 7 => ';',
+                        // 6 => 'c',
+                        // 5 => 'o',
+                        // 4 => 'P',
+                        // 3 => '0',
+                        // 2 => '?',
+                        // 1 => '@',
+                        // 0 => '#',
                         _ => {
                             panic!("Illegal discrete state");
                         }

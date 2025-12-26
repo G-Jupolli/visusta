@@ -1,0 +1,12 @@
+[package]
+name = "visusta"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow.workspace = true
+image.workspace = true
+visusta-cpu = { version = "0.1.0", path = "../visusta-cpu" }
+visusta-core = { version = "0.1.0", path = "../visusta-core" }
+wgpu = "27.0.1"
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros"] }

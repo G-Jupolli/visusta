@@ -1,0 +1,9 @@
+[package]
+name = "processors"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow = "1.0.100"
+libm = "0.2.15"
+rayon = "1.11.0"

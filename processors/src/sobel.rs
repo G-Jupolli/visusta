@@ -1,6 +1,9 @@
 use std::f32::consts::PI;
 
-use crate::utils::LuminanceBuff;
+use crate::{
+    composer::{ProcessorPage, ProcessorPageSignal},
+    utils::LuminanceBuff,
+};
 use libm::atan2f;
 use rayon::{
     iter::{IndexedParallelIterator, ParallelIterator},
@@ -14,6 +17,30 @@ pub enum DirectionAscii {
     Y,
     LR,
     RL,
+}
+
+#[derive(Debug)]
+pub struct SobelColorData {
+    min_cut: u8,
+    r: SobelColorItem,
+    g: SobelColorItem,
+    b: SobelColorItem,
+}
+
+#[derive(Debug)]
+pub struct SobelAscii {
+    font_size: usize,
+    normal_cutoff: u8,
+    ascii_min: f32,
+}
+
+#[derive(Debug)]
+pub enum SobelColorItem {
+    NormalScale(f32),
+    GxScale(f32),
+    GyScale(f32),
+    Absolute(u8),
+    None,
 }
 
 /// The Sobel ( Sobel-Feldman ) filter is going to be used for edge detection
@@ -172,6 +199,86 @@ impl SobelFilter {
         sobel_buff
     }
 
+    pub fn page_to_direction_colour(
+        page: &ProcessorPage,
+        color_cfg: SobelColorData,
+    ) -> ProcessorPage {
+        assert_eq!(
+            page.signal,
+            ProcessorPageSignal::Luminance,
+            "page_to_direction_colour received non luminance page"
+        );
+
+        let width = page.width;
+        let height = page.height;
+
+        let mut sobel_buff = vec![0u8; width * height * 3];
+        sobel_buff
+            .par_chunks_mut(width * 3)
+            .enumerate()
+            .for_each(|(y, row)| {
+                if y == 0 || y == height - 1 {
+                    return;
+                }
+
+                for x in 1..(width - 1) {
+                    let nw = page.data[(y - 1) * width + (x - 1)] as i32;
+                    let n = page.data[(y - 1) * width + x] as i32;
+                    let ne = page.data[(y - 1) * width + (x + 1)] as i32;
+
+                    let w = page.data[y * width + (x - 1)] as i32;
+                    let e = page.data[y * width + (x + 1)] as i32;
+
+                    let sw = page.data[(y + 1) * width + (x - 1)] as i32;
+                    let s = page.data[(y + 1) * width + x] as i32;
+                    let se = page.data[(y + 1) * width + (x + 1)] as i32;
+
+                    let gx = (ne - nw) + 2 * (e - w) + (se - sw);
+                    let gy = (sw + s * 2 + se) - (nw + n * 2 + ne);
+
+                    let mag_sq = (gx * gx + gy * gy) as f32;
+                    let normal = ((mag_sq / MAX_SOBEL_SQ) * 255.0).min(255.0) as u8;
+
+                    if normal < color_cfg.min_cut {
+                        continue;
+                    }
+
+                    let out_idx = x * 3;
+
+                    row[out_idx + 0] = match color_cfg.r {
+                        SobelColorItem::NormalScale(s) => ((normal as f32) * s) as u8,
+                        SobelColorItem::GxScale(s) => ((gx as f32) * s) as u8,
+                        SobelColorItem::GyScale(s) => ((gy as f32) * s) as u8,
+                        SobelColorItem::Absolute(v) => v,
+                        SobelColorItem::None => 0,
+                    };
+
+                    row[out_idx + 1] = match color_cfg.g {
+                        SobelColorItem::NormalScale(s) => ((normal as f32) * s) as u8,
+                        SobelColorItem::GxScale(s) => ((gx as f32) * s) as u8,
+                        SobelColorItem::GyScale(s) => ((gy as f32) * s) as u8,
+                        SobelColorItem::Absolute(v) => v,
+                        SobelColorItem::None => 0,
+                    };
+
+                    row[out_idx + 2] = match color_cfg.b {
+                        SobelColorItem::NormalScale(s) => ((normal as f32) * s) as u8,
+                        SobelColorItem::GxScale(s) => ((gx as f32) * s) as u8,
+                        SobelColorItem::GyScale(s) => ((gy as f32) * s) as u8,
+                        SobelColorItem::Absolute(v) => v,
+                        SobelColorItem::None => 0,
+                    };
+                }
+            });
+
+        ProcessorPage {
+            signal: ProcessorPageSignal::RGB,
+            width,
+            height,
+            data: sobel_buff,
+        }
+    }
+
     pub fn to_ascii_direction(
         luminance_buff: &LuminanceBuff,
         font_size: usize,
@@ -263,10 +370,10 @@ impl SobelFilter {
                                     sum_lr += 1;
                                 }
                                 DirectionAscii::Y => {
-                                    sum_rl += 1;
+                                    sum_y += 1;
                                 }
                                 DirectionAscii::RL => {
-                                    sum_y += 1;
+                                    sum_rl += 1;
                                 }
                             }
                             sum_total += 1;
@@ -303,6 +410,147 @@ impl SobelFilter {
             });
 
         scaled_buff
+    }
+
+    pub fn page_to_ascii_direction(
+        page: &ProcessorPage,
+        ascii_config: SobelAscii,
+    ) -> ProcessorPage {
+        assert_eq!(
+            page.signal,
+            ProcessorPageSignal::Luminance,
+            "page_to_direction_colour received non luminance page"
+        );
+
+        let width = page.width;
+        let height = page.height;
+
+        // We're creating the initial buff to know the direction
+        //  at the pixel level.
+        // We will use this to compute the char at the expanded pixel level
+        let mut direction_buff = vec![DirectionAscii::None; width * height];
+
+        direction_buff
+            .par_chunks_mut(width)
+            .enumerate()
+            .for_each(|(y, row)| {
+                if y == 0 || y == height - 1 {
+                    return;
+                }
+
+                for x in 1..(width - 1) {
+                    let nw = page.data[(y - 1) * width + (x - 1)] as i32;
+                    let n = page.data[(y - 1) * width + x] as i32;
+                    let ne = page.data[(y - 1) * width + (x + 1)] as i32;
+
+                    let w = page.data[y * width + (x - 1)] as i32;
+                    let e = page.data[y * width + (x + 1)] as i32;
+
+                    let sw = page.data[(y + 1) * width + (x - 1)] as i32;
+                    let s = page.data[(y + 1) * width + x] as i32;
+                    let se = page.data[(y + 1) * width + (x + 1)] as i32;
+
+                    let gx = (ne - nw) + 2 * (e - w) + (se - sw);
+                    let gy = (sw + s * 2 + se) - (nw + n * 2 + ne);
+
+                    let mag_sq = (gx * gx + gy * gy) as f32;
+                    let normal = ((mag_sq / MAX_SOBEL_SQ) * 255.0).min(255.0) as u8;
+
+                    if normal > ascii_config.normal_cutoff {
+                        row[x] = SobelFilter::sobel_dir_gx_gy(gx, gy);
+                    }
+                }
+            });
+
+        let new_width = width.div_ceil(ascii_config.font_size);
+        let new_height = height.div_ceil(ascii_config.font_size);
+
+        let mut scaled_buff = vec![0u8; new_width * new_height];
+
+        scaled_buff
+            .par_chunks_mut(new_width)
+            .enumerate()
+            .for_each(|(y, row)| {
+                // This maps to the to left pixel at the start of this
+                //  parallelized row
+                let start_idx = (y * ascii_config.font_size) * width;
+
+                for (x, x_item) in row.iter_mut().enumerate() {
+                    // bring cursor to the top left pixel of the group
+                    let mut x_idx = start_idx + (ascii_config.font_size * x);
+
+                    let mut sum_emp = 0;
+                    let mut sum_x = 0;
+                    let mut sum_lr = 0;
+                    let mut sum_y = 0;
+                    let mut sum_rl = 0;
+
+                    let mut sum_total = 0;
+
+                    // From the top left corner, we scan ( font_size - 1 ) pixels
+                    //  down and ( font_size - 1 ) pixels to the right
+                    for _ in 0..ascii_config.font_size {
+                        for x in 0..ascii_config.font_size {
+                            if x_idx + x >= direction_buff.len() {
+                                break;
+                            }
+
+                            match direction_buff[x_idx + x] {
+                                DirectionAscii::None => {
+                                    sum_emp += 1;
+                                }
+                                DirectionAscii::X => {
+                                    sum_x += 1;
+                                }
+                                DirectionAscii::LR => {
+                                    sum_lr += 1;
+                                }
+                                DirectionAscii::Y => {
+                                    sum_y += 1;
+                                }
+                                DirectionAscii::RL => {
+                                    sum_rl += 1;
+                                }
+                            }
+                            sum_total += 1;
+                        }
+
+                        // Bring x_idx down to the leftmost pixel of the next row
+                        x_idx += width;
+                    }
+
+                    if (sum_emp as f32 / sum_total as f32) < ascii_config.ascii_min {
+                        let (a_dir, a_max) = if sum_x > sum_y {
+                            (DirectionAscii::X, sum_x)
+                        } else {
+                            (DirectionAscii::Y, sum_y)
+                        };
+
+                        let (b_dir, b_max) = if sum_rl > sum_lr {
+                            (DirectionAscii::RL, sum_rl)
+                        } else {
+                            (DirectionAscii::LR, sum_lr)
+                        };
+
+                        let res = if a_max > b_max { a_dir } else { b_dir };
+
+                        *x_item = match res {
+                            DirectionAscii::None => ' ' as u8,
+                            DirectionAscii::X => '|' as u8,
+                            DirectionAscii::LR => '/' as u8,
+                            DirectionAscii::Y => '-' as u8,
+                            DirectionAscii::RL => '\\' as u8,
+                        }
+                    }
+                }
+            });
+
+        ProcessorPage {
+            signal: ProcessorPageSignal::Char,
+            width,
+            height,
+            data: scaled_buff,
+        }
     }
 
     pub fn sobel_dir_gx_gy(gx: i32, gy: i32) -> DirectionAscii {
@@ -420,7 +668,7 @@ impl SobelFilter {
                     let out_idx = x * 3;
 
                     if normal < 20 {
-                        let raw_out_idx = y * width + x;
+                        let raw_out_idx = (y * width + x) * 3;
 
                         row[out_idx + 0] = raw_rgb[raw_out_idx + 0];
                         row[out_idx + 1] = raw_rgb[raw_out_idx + 1];
