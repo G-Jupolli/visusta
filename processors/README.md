@@ -4,8 +4,8 @@ Migration Stages:
  - Visusta CPU
     - Sobel
         - Colour ( done )
-        - ASCII
-    - Gaussian
+        - ASCII ( done )
+    - Gaussian ( done )
  - Visusta GPU
     - Sobel
         - Colour

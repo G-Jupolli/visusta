@@ -9,3 +9,4 @@ log.workspace = true
 image.workspace = true
 async-trait = "0.1.89"
 rayon.workspace = true
+libm.workspace = true

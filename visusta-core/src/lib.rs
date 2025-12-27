@@ -1,5 +1,34 @@
 use async_trait::async_trait;
-use image::RgbaImage;
+use image::{ImageBuffer, LumaA, RgbaImage};
+
+use crate::gaussians::{GaussianBuilder, GaussianColorData};
+
+pub mod gaussians;
+
+#[derive(Debug, Clone, Copy)]
+pub struct LuminanceFilter {
+    pub multiplier: f32,
+    pub min: u8,
+}
+
+impl LuminanceFilter {
+    pub fn create() -> Self {
+        LuminanceFilter {
+            multiplier: 1.0,
+            min: 0,
+        }
+    }
+
+    pub fn multiplier(mut self, multiplier: f32) -> Self {
+        self.multiplier = multiplier;
+        self
+    }
+
+    pub fn min(mut self, min: u8) -> Self {
+        self.min = min;
+        self
+    }
+}
 
 #[derive(Debug)]
 pub struct SobelColorData {
@@ -19,39 +48,118 @@ pub enum SobelColorItem {
     None,
 }
 
+#[derive(Debug)]
+pub struct LuminanceAsciiFilter {
+    pub font_size: usize,
+    pub chars: [char; 10],
+    pub space_type: AsciiSpaceType,
+}
+
+#[derive(Debug)]
+pub enum AsciiSpaceType {
+    Duplicate,
+    Space,
+    Raw(char),
+}
+
+#[derive(Debug)]
+pub struct SobelAscii {
+    pub font_size: usize,
+    pub magnitude_min: u8,
+    pub ascii_max: f32,
+    pub chars: [char; 4],
+    pub space_type: AsciiSpaceType,
+}
+
+impl LuminanceAsciiFilter {
+    pub fn create() -> LuminanceAsciiFilter {
+        LuminanceAsciiFilter {
+            font_size: 10,
+            chars: [' ', '.', ';', 'c', 'o', 'P', '0', '?', '@', '#'],
+            space_type: AsciiSpaceType::Space,
+        }
+    }
+
+    pub fn font_size(mut self, font_size: usize) -> Self {
+        self.font_size = font_size;
+        self
+    }
+
+    pub fn chars(mut self, chars: [char; 10]) -> Self {
+        self.chars = chars;
+        self
+    }
+
+    pub fn space_type(mut self, space_type: AsciiSpaceType) -> Self {
+        self.space_type = space_type;
+        self
+    }
+}
+
+impl SobelAscii {
+    pub fn create() -> Self {
+        SobelAscii {
+            font_size: 10,
+            magnitude_min: 10,
+            ascii_max: 0.65,
+            chars: ['|', '/', '-', '\\'],
+            space_type: AsciiSpaceType::Space,
+        }
+    }
+
+    pub fn font_size(mut self, font_size: usize) -> Self {
+        self.font_size = font_size;
+        self
+    }
+
+    pub fn magnitude_min(mut self, magnitude_min: u8) -> Self {
+        self.magnitude_min = magnitude_min;
+        self
+    }
+
+    pub fn ascii_max(mut self, ascii_max: f32) -> Self {
+        self.ascii_max = ascii_max;
+        self
+    }
+
+    pub fn chars(mut self, chars: [char; 4]) -> Self {
+        self.chars = chars;
+        self
+    }
+
+    pub fn space_type(mut self, space_type: AsciiSpaceType) -> Self {
+        self.space_type = space_type;
+        self
+    }
+}
+
+pub type LumaAImage = ImageBuffer<LumaA<u8>, Vec<u8>>;
+
+pub struct CharImage {
+    pub width: usize,
+    pub height: usize,
+    pub data: Vec<char>,
+}
+
 #[async_trait]
 pub trait VisustaProcessor {
-    async fn sobel_to_colour(&self, img: &RgbaImage, filter: SobelColorData) -> RgbaImage;
+    async fn rgba_to_luma_a(&self, img: &RgbaImage, filter: LuminanceFilter) -> LumaAImage;
+
+    async fn sobel_to_colour(&self, img: &LumaAImage, filter: SobelColorData) -> RgbaImage;
+
+    async fn sobel_ascii_directional(&self, img: &LumaAImage, filter: SobelAscii) -> CharImage;
+
+    async fn gaussian_on_luma(&self, img: &LumaAImage, builder: GaussianBuilder) -> LumaAImage;
+
+    async fn gaussian_to_coloured(
+        &self,
+        img: &LumaAImage,
+        builder: GaussianBuilder,
+        filter: GaussianColorData,
+    ) -> RgbaImage;
+
+    async fn luminance_to_ascii(&self, img: &LumaAImage, filter: LuminanceAsciiFilter)
+    -> CharImage;
 
     async fn overlay_image(&self, img_bg: &RgbaImage, img_fg: &RgbaImage) -> RgbaImage;
 }
-
-// pub async fn get_image_processor() -> Box<dyn ImageProcessor> {
-//     let gpu_available = detect_gpu().await;
-
-//     if gpu_available {
-//         log::info!("GPU detected, using GPU processor");
-//         // TODO: Return GPU processor once implemented
-//         // Box::new(GpuImageProcessor::new().await.unwrap())
-//         unimplemented!("GPU processor not yet implemented")
-//     } else {
-//         log::info!("No GPU detected, using CPU processor");
-//         // TODO: Return CPU processor once implemented
-//         // Box::new(CpuImageProcessor::new())
-//         unimplemented!("CPU processor not yet implemented")
-//     }
-// }
-
-// async fn detect_gpu() -> bool {
-//     let instance = wgpu::Instance::default();
-
-//     let adapter = instance
-//         .request_adapter(&wgpu::RequestAdapterOptions {
-//             power_preference: wgpu::PowerPreference::HighPerformance,
-//             compatible_surface: None,
-//             force_fallback_adapter: false,
-//         })
-//         .await;
-
-//     adapter.is_some()
-// }

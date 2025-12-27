@@ -1623,9 +1623,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "image",
+ "log",
  "tokio",
  "visusta-core",
  "visusta-cpu",
+ "visusta-gpu",
  "wgpu 27.0.1",
 ]
 
@@ -1644,6 +1646,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "image",
+ "libm",
  "log",
  "rayon",
  "visusta-core",
@@ -1653,6 +1656,10 @@ dependencies = [
 name = "visusta-gpu"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
+ "image",
+ "visusta-core",
+ "visusta-cpu",
  "wgpu 27.0.1",
 ]
 
