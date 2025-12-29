@@ -81,7 +81,7 @@ impl ProcessingStep {
         let output = match self {
             ProcessingStep::ToLuminance(filter) => {
                 let img = input.into_rgba()?;
-                LayerOutput::LumaA(processor.rgba_to_luma_a(&img, filter.clone()).await)
+                LayerOutput::LumaA(processor.rgba_to_luma_a(&img, *filter).await)
             }
             ProcessingStep::LumaToRgba => {
                 let img = input.into_luma()?;

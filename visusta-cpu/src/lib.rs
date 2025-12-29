@@ -33,7 +33,7 @@ impl VisustaProcessor for VisustaCPU {
     }
 
     async fn sobel_to_colour(&self, img: &LumaAImage, filter: SobelColorData) -> RgbaImage {
-        page_to_direction_colour(&img, filter)
+        page_to_direction_colour(img, filter)
     }
 
     async fn gaussian_on_luma(&self, img: &LumaAImage, builder: GaussianBuilder) -> LumaAImage {
@@ -198,7 +198,7 @@ pub fn page_to_direction_colour(img: &LumaAImage, filter: SobelColorData) -> Rgb
 
                 let out_idx = x * 4;
 
-                row[out_idx + 0] = match filter.r {
+                row[out_idx] = match filter.r {
                     SobelColorItem::NormalScale(s) => ((normal as f32) * s) as u8,
                     SobelColorItem::GxScale(s) => ((gx as f32) * s) as u8,
                     SobelColorItem::GyScale(s) => ((gy as f32) * s) as u8,
@@ -357,7 +357,7 @@ fn luminance_to_ascii(img: &LumaAImage, filter: LuminanceAsciiFilter) -> CharIma
     let width = (img.width() as usize).div_ceil(filter.font_size) * 2;
     let height = (img.height() as usize).div_ceil(filter.font_size);
 
-    let mut char_buff = vec![' '; (width * height) as usize];
+    let mut char_buff = vec![' '; width * height];
 
     char_buff
         .par_chunks_mut(width)
@@ -435,16 +435,16 @@ fn sobel_ascii_directional(img: &LumaAImage, filter: SobelAscii) -> CharImage {
             }
 
             for x in 1..(width - 1) {
-                let nw = img.get_pixel((x - 1) as u32, (y - 1) as u32).0[0] as i32;
-                let n = img.get_pixel(x as u32, (y - 1) as u32).0[0] as i32;
-                let ne = img.get_pixel((x + 1) as u32, (y - 1) as u32).0[0] as i32;
+                let nw = img.get_pixel(x - 1, (y - 1) as u32).0[0] as i32;
+                let n = img.get_pixel(x, (y - 1) as u32).0[0] as i32;
+                let ne = img.get_pixel(x + 1, (y - 1) as u32).0[0] as i32;
 
-                let w = img.get_pixel((x - 1) as u32, y as u32).0[0] as i32;
-                let e = img.get_pixel((x + 1) as u32, y as u32).0[0] as i32;
+                let w = img.get_pixel(x - 1, y as u32).0[0] as i32;
+                let e = img.get_pixel(x + 1, y as u32).0[0] as i32;
 
-                let sw = img.get_pixel((x - 1) as u32, (y + 1) as u32).0[0] as i32;
-                let s = img.get_pixel(x as u32, (y + 1) as u32).0[0] as i32;
-                let se = img.get_pixel((x + 1) as u32, (y + 1) as u32).0[0] as i32;
+                let sw = img.get_pixel(x - 1, (y + 1) as u32).0[0] as i32;
+                let s = img.get_pixel(x, (y + 1) as u32).0[0] as i32;
+                let se = img.get_pixel(x + 1, (y + 1) as u32).0[0] as i32;
 
                 let gx = (ne - nw) + 2 * (e - w) + (se - sw);
                 let gy = (sw + s * 2 + se) - (nw + n * 2 + ne);
