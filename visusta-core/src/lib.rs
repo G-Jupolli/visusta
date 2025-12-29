@@ -104,7 +104,7 @@ impl SobelAscii {
             font_size: 10,
             magnitude_min: 10,
             ascii_max: 0.65,
-            chars: ['|', '/', '-', '\\'],
+            chars: ['|', '/', '─', '\\'],
             space_type: AsciiSpaceType::Space,
         }
     }
