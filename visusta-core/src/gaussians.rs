@@ -2,13 +2,13 @@ use std::f32::consts::PI;
 
 type GaussianKernel = [f32; 9];
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GaussianKernelData {
     pub kernel: GaussianKernel,
     pub cutoff: Option<f32>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GaussianColorData {
     pub r: GaussianColorItem,
     pub g: GaussianColorItem,
@@ -16,20 +16,14 @@ pub struct GaussianColorData {
     pub a: GaussianColorItem,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum GaussianColorItem {
     NormalScale(f32),
     Absolute(u8),
     None,
 }
 
-/// Currently calculating a dog ( difference of gaussians ) with r = 1 for a
-///  3x3 kernel
-///
-/// Additional parameters for kernel building:
-/// τ = post normal scale of second gaussian
-/// ε = cut off
-///
+#[derive(Debug, Clone)]
 pub struct GaussianBuilder {
     sigma_a: f32,
     sigma_b: f32,
@@ -71,25 +65,6 @@ impl GaussianBuilder {
         }
     }
 
-    /// Normalising a gaussian in this case would be to divide the matrix points
-    ///  by the sum of the gaussian.
-    ///
-    /// The difference can then be calculated by the difference of the normalised gaussians.
-    ///
-    /// So for point xy, can be calculated by:
-    ///
-    /// Gaxy = point xy on the first Gaussian
-    /// Gbxy = point xy on the second Gaussian
-    ///
-    /// Sa   = sum of the first Gaussian
-    /// Sb   = sum of the second Gaussian
-    ///
-    /// kxy  = resulting kernel value at xy
-    ///
-    ///        Gaxy     Gbxy
-    /// kxy = ────── - ──────
-    ///         Sa       Sb
-    ///
     fn calculate_normalised_difference(
         &self,
         gaussian_a: GaussianKernel,
@@ -114,27 +89,6 @@ impl GaussianBuilder {
         res
     }
 
-    /// Currently calculating a gaussian kernel of r = 1
-    ///
-    /// The resulting kernels will be for these co ordinates around center c 0,0
-    /// ╭                   ╮
-    /// | -1,-1  0,-1  1,-1 |
-    /// | -1, 0  0, 0  1, 0 |
-    /// | -1, 1  0, 1  1, 1 |
-    /// ╰                   ╯
-    ///
-    /// Possible optimisations:
-    /// Looks like the resulting kernel has 1 + 2r possible values as the x,y values are squared
-    ///
-    /// ╭          ╮
-    /// | Aσ Bσ Aσ |
-    /// | Bσ Cσ Bσ |
-    /// | Aσ Bσ Aσ |
-    /// ╰          ╯
-    /// There could be time saved by just expressing the resulting kernel as [3; f32]
-    /// I'll stick to the simpler solution for now and check if it is worth it
-    /// to minimise this down the line
-    ///
     fn calculate_continuous_gaussians(&self) -> (GaussianKernel, f32, GaussianKernel, f32) {
         let mut gaussian_a = GaussianKernel::default();
         let mut gaussian_b = GaussianKernel::default();
@@ -157,27 +111,6 @@ impl GaussianBuilder {
         (gaussian_a, sum_a, gaussian_b, sum_b)
     }
 
-    /// To calculate the Gaussian at an index around center c ( 0 , 0 )
-    /// we can apply this formula for:
-    /// G = gaussian
-    /// π = PI
-    /// σ = sigma value for the gaussian
-    /// x = x co ordinate relative to c
-    /// y = y co ordinate relative to c
-    ///
-    ///       1       ╭  x^2 + y^2 ╮
-    /// G = ───── exp |- ───────── |
-    ///     2πσ^2     ╰     2σ^2   ╯
-    ///
-    /// Simplified to:
-    ///
-    /// Ga = 2πσ^2
-    /// Gb = - ( x^2 + y^2 ) / 2σ^2
-    ///
-    /// G = Gb / Ga
-    ///
-    /// This will give us the continuous gaussian that we will need
-    ///  to normalise later
     fn calculate_continuous(sigma: f32, x: f32, y: f32) -> f32 {
         let base = 2.0 * PI * sigma * sigma;
         let exp_power = 0.0 - ((x * x + y * y) / (2.0 * sigma * sigma));

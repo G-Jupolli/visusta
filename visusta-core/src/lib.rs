@@ -2,8 +2,10 @@ use async_trait::async_trait;
 use image::{ImageBuffer, LumaA, RgbaImage};
 
 use crate::gaussians::{GaussianBuilder, GaussianColorData};
+use crate::pipeline::LayerOutput;
 
 pub mod gaussians;
+pub mod pipeline;
 
 #[derive(Debug, Clone, Copy)]
 pub struct LuminanceFilter {
@@ -30,7 +32,7 @@ impl LuminanceFilter {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SobelColorData {
     pub magnitude_min: u8,
     pub r: SobelColorItem,
@@ -39,7 +41,7 @@ pub struct SobelColorData {
     pub a: SobelColorItem,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum SobelColorItem {
     NormalScale(f32),
     GxScale(f32),
@@ -48,21 +50,21 @@ pub enum SobelColorItem {
     None,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LuminanceAsciiFilter {
     pub font_size: usize,
     pub chars: [char; 10],
     pub space_type: AsciiSpaceType,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum AsciiSpaceType {
     Duplicate,
     Space,
     Raw(char),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SobelAscii {
     pub font_size: usize,
     pub magnitude_min: u8,
@@ -145,6 +147,8 @@ pub struct CharImage {
 pub trait VisustaProcessor {
     async fn rgba_to_luma_a(&self, img: &RgbaImage, filter: LuminanceFilter) -> LumaAImage;
 
+    async fn luma_to_rgba(&self, img: &LumaAImage) -> RgbaImage;
+
     async fn sobel_to_colour(&self, img: &LumaAImage, filter: SobelColorData) -> RgbaImage;
 
     async fn sobel_ascii_directional(&self, img: &LumaAImage, filter: SobelAscii) -> CharImage;
@@ -161,5 +165,5 @@ pub trait VisustaProcessor {
     async fn luminance_to_ascii(&self, img: &LumaAImage, filter: LuminanceAsciiFilter)
     -> CharImage;
 
-    async fn overlay_image(&self, img_bg: &RgbaImage, img_fg: &RgbaImage) -> RgbaImage;
+    async fn overlay_layers(&self, layers: &[LayerOutput]) -> Option<LayerOutput>;
 }

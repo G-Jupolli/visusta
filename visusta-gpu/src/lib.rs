@@ -4,6 +4,7 @@ use visusta_core::{
     CharImage, LumaAImage, LuminanceAsciiFilter, LuminanceFilter, SobelAscii, SobelColorData,
     VisustaProcessor,
     gaussians::{GaussianBuilder, GaussianColorData},
+    pipeline::LayerOutput,
 };
 use visusta_cpu::VisustaCPU;
 
@@ -15,6 +16,10 @@ pub struct VisustaGPU {
 impl VisustaProcessor for VisustaGPU {
     async fn rgba_to_luma_a(&self, img: &RgbaImage, filter: LuminanceFilter) -> LumaAImage {
         self.cpu.rgba_to_luma_a(img, filter).await
+    }
+
+    async fn luma_to_rgba(&self, img: &LumaAImage) -> RgbaImage {
+        self.cpu.luma_to_rgba(img).await
     }
 
     async fn sobel_to_colour(&self, img: &LumaAImage, filter: SobelColorData) -> RgbaImage {
@@ -46,7 +51,7 @@ impl VisustaProcessor for VisustaGPU {
         self.cpu.sobel_ascii_directional(img, filter).await
     }
 
-    async fn overlay_image(&self, img_bg: &RgbaImage, img_fg: &RgbaImage) -> RgbaImage {
-        self.cpu.overlay_image(img_bg, img_fg).await
+    async fn overlay_layers(&self, layers: &[LayerOutput]) -> Option<LayerOutput> {
+        self.cpu.overlay_layers(layers).await
     }
 }

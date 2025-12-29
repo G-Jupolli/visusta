@@ -1,78 +1,105 @@
-# Sobel ( Sobel-Feldman ) Filter
+# Sobel (Sobel-Feldman) Filter
 
-The sobel filter is an edge detection algorithm that uses the directional change  \
+The Sobel filter is an edge detection algorithm that uses the directional change \
 in luminance value.
 
-**The base Sobel Directional Filters**
+## Directional Filters
+
+The Sobel operator uses two 3x3 kernels to calculate the gradient in the x and y directions.
+
+**Kernel Coordinates**
 ```
-Where:
-Gx is the change along the x axis
-Gy is the change along the y axis
-A is the frame around center c as cardinal directions
+The frame around center c using cardinal directions:
 
      ╭          ╮
      | nw  n ne |
 A  = |  w  c  e |
      | sw  s se |
      ╰          ╯
+```
+
+**Sobel Kernels**
+```
+Where:
+Gx = gradient along the x axis
+Gy = gradient along the y axis
 
      ╭          ╮
      | -1  0  1 |
 Gx = | -2  0  2 | * A
      | -1  0  1 |
      ╰          ╯
+
      ╭          ╮
      | -1 -2 -1 |
 Gy = |  0  0  0 | * A
      |  1  2  1 |
      ╰          ╯
- ```
+```
 
-Expressing These convolutions as equations we get
+**Convolution Equations**
 ```
 Gx = ne - nw + ( 2 * (e - w) ) + se - sw
 Gy = sw + ( s * 2 ) + se - nw + ( n * 2 ) + ne
 ```
 
-Considering point ( Gx, Gy )
+## Magnitude and Direction
+
+From the gradient components, we can calculate the magnitude and direction of the edge.
+
+**Formulas**
 ```
-m is the magnitude of the vector (Gx, Gy)
-d is the radial direction of (Gx, Gy) -pi <= d >= pi
+Where:
+m = magnitude of the vector (Gx, Gy)
+d = radial direction of (Gx, Gy), range: -pi <= d <= pi
 
 m^2 = Gx^2 + Gy^2
-d   = atan2(Gx, Gy)
+d   = atan2(Gy, Gx)
 ```
+
+## Parameters
+
+| Parameter | Symbol | Description |
+|-----------|--------|-------------|
+| magnitude_min | t | Threshold on m^2, avoids expensive sqrt call |
 
 ## Practical Use
 
-Having a threshold of magnitude is for de-noising. 
-```
-t is a threshold on m^2, avoids expensive sqrt call
-```
+### Thresholding
+
+Having a threshold on magnitude is used for de-noising. By comparing against m^2 \
+instead of m, we avoid an expensive square root calculation.
 
 ### Colouring
 
-We can assign colour to pixels based off any value.
+We can assign colour to pixels based on any computed value.
 
-e.g Setting the Red value of a pixel to Gx * m and the blue value to Gy * m  \
-This would result in a picture where the transitional pixels are coloured.
+Example: Setting the Red channel to `Gx * m` and the Blue channel to `Gy * m` \
+results in an image where transitional pixels are coloured based on their edge direction.
 
-### ASCII rendering
+### ASCII Rendering
 
-By using the sobel filter, we get the directional change in luminance of a pixel.  \
-We can use characters `|` `/` `-` `\` to be our directional chars.  \
-If we define font size `f` we can scan frames of size `f x f`.  \
-Depending on the most common direction `d` of the pixels, we can assign them a char.
+By using the Sobel filter, we get the directional change in luminance of a pixel. \
+We can use characters `|` `/` `-` `\` to represent directional edges.
 
-There will be a threshold of `tf` that dictates the minimum proportion of directional  \
-pixels in an `f x f` frame.
+**ASCII Parameters**
+| Parameter | Symbol | Description |
+|-----------|--------|-------------|
+| font_size | f | Size of the sampling frame |
+| ascii_max | tf | Minimum proportion of directional pixels in frame |
+| chars | - | Character set for directions: `\|`, `/`, `-`, `\` |
 
-### Limitations
+**Process**
+1. Define font size `f` to scan frames of size `f x f`
+2. For each frame, count pixels by direction `d`
+3. Assign the character corresponding to the most common direction
+4. Apply threshold `tf` to filter out frames with too few directional pixels
 
-The Sobel filter will expose edges on a per pixel level.  \
-However, these will be any pixels of transitional luminance.  \
-A face with a shadow will have a gradient across it's whole such that  \
-a threshold `t` would have to be high enough to de-noise.
+## Limitations
 
-To solve this, we can use a Difference of Gaussians filter as an  \
-initial de noising step.
+The Sobel filter exposes edges on a per-pixel level. However, these include \
+any pixels with transitional luminance. A face with a shadow will have a \
+gradient across its surface, requiring a high threshold `t` to de-noise.
+
+**Solution:** Use a Difference of Gaussians filter as an initial de-noising step. \
+See [Gaussian.md](./Gaussian.md) for details.
