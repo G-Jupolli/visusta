@@ -12,12 +12,18 @@ use visusta_gpu::VisustaGPU;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let path = Path::new("./test_images/owl_2.jpg");
+    let args: Vec<String> = std::env::args().collect();
+
+    if args.len() < 2 {
+        anyhow::bail!("Usage: {} <image_path>", args[0]);
+    }
+
+    let path = Path::new(&args[1]);
 
     let base_img = image::open(path)?
         // Sizings
-        .resize(944, 531, FilterType::Lanczos3)
-        // .resize(1280, 720, FilterType::Lanczos3)
+        // .resize(944, 531, FilterType::Lanczos3)
+        .resize(1280, 720, FilterType::Lanczos3)
     // .resize(2560, 1440, FilterType::Lanczos3)
     //buff
     ;
@@ -61,13 +67,14 @@ async fn detect_gpu() -> bool {
 fn create_ascii_pipeline() -> Pipeline {
     let ascii_filter = LuminanceAsciiFilter::create();
 
-    let font_size = 12;
+    let font_size = 16;
 
-    let chars = ascii_filter.chars;
+    let mut chars = ascii_filter.chars;
+    chars[1] = ' ';
 
     let background = Layer::new()
         .add_step(ProcessingStep::ToLuminance(
-            LuminanceFilter::create().multiplier(0.7),
+            LuminanceFilter::create().multiplier(1.0),
         ))
         .add_step(ProcessingStep::LuminanceToAscii(
             ascii_filter.chars(chars).font_size(font_size),
@@ -75,15 +82,15 @@ fn create_ascii_pipeline() -> Pipeline {
 
     let foreground = Layer::new()
         .add_step(ProcessingStep::ToLuminance(
-            LuminanceFilter::create().multiplier(0.7),
+            LuminanceFilter::create().multiplier(1.0),
         ))
         .add_step(ProcessingStep::GaussianOnLuma(
-            GaussianBuilder::create(0.5, 2.25).scalar(0.5).cutoff(40.0),
+            GaussianBuilder::create(0.5, 2.25).scalar(0.5).cutoff(25.0),
         ))
         .add_step(ProcessingStep::SobelAsciiDirectional(
             SobelAscii::create()
                 .magnitude_min(20)
-                .ascii_max(0.65)
+                .ascii_max(0.675)
                 .font_size(font_size),
         ));
 

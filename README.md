@@ -12,6 +12,18 @@ This repo is my attempt at implementing the methods myself.
 
 ---
 
+## Running
+
+This project requires the latest version of [Rust](https://rust-lang.org/tools/install/).
+
+To generate an ASCII art version of an image, run:
+
+```bash
+cargo process -- path/to/your/image.jpg
+```
+
+---
+
 ## Example
 
 <div>
