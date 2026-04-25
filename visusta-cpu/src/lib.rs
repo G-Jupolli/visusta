@@ -108,6 +108,15 @@ impl VisustaProcessor for VisustaCPU {
             }
         }
     }
+
+    async fn luminance_to_ascii_br(
+        &self,
+        img: &LumaAImage,
+        filter: LuminanceAsciiFilter,
+        threshold: f32,
+    ) -> CharImage {
+        luminance_to_ascii_br(img, filter, threshold)
+    }
 }
 
 const MAX_SOBEL_SQ: f32 = 255.0 * 255.0;

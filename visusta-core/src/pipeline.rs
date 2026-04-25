@@ -51,6 +51,7 @@ pub enum ProcessingStep {
     // LumaAImage -> CharImage
     LuminanceToAscii(LuminanceAsciiFilter),
     SobelAsciiDirectional(SobelAscii),
+    LuminanceToAsciiBr(LuminanceAsciiFilter, f32),
 }
 
 impl ProcessingStep {
@@ -70,6 +71,7 @@ impl ProcessingStep {
             // LumaAImage -> CharImage
             ProcessingStep::LuminanceToAscii(_) => (DataType::LumaA, DataType::Char),
             ProcessingStep::SobelAsciiDirectional(_) => (DataType::LumaA, DataType::Char),
+            ProcessingStep::LuminanceToAsciiBr(..) => (DataType::LumaA, DataType::Char),
         }
     }
 
@@ -112,6 +114,14 @@ impl ProcessingStep {
                 LayerOutput::Char(
                     processor
                         .sobel_ascii_directional(&img, filter.clone())
+                        .await,
+                )
+            }
+            ProcessingStep::LuminanceToAsciiBr(filter, threshold) => {
+                let img = input.into_luma()?;
+                LayerOutput::Char(
+                    processor
+                        .luminance_to_ascii_br(&img, filter.clone(), *threshold)
                         .await,
                 )
             }

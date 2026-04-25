@@ -67,10 +67,13 @@ async fn detect_gpu() -> bool {
 fn create_ascii_pipeline() -> Pipeline {
     let ascii_filter = LuminanceAsciiFilter::create();
 
-    let font_size = 16;
+    let font_size = 12;
 
     let mut chars = ascii_filter.chars;
     chars[1] = ' ';
+    // chars[2] = ';';
+    // chars[3] = ';';
+    // chars[4] = ';';
 
     let background = Layer::new()
         .add_step(ProcessingStep::ToLuminance(
@@ -79,18 +82,22 @@ fn create_ascii_pipeline() -> Pipeline {
         .add_step(ProcessingStep::LuminanceToAscii(
             ascii_filter.chars(chars).font_size(font_size),
         ));
+    // .add_step(ProcessingStep::LuminanceToAsciiBr(
+    // ascii_filter.font_size(font_size),
+    // 256.0 * 0.375,
+    // ));
 
     let foreground = Layer::new()
         .add_step(ProcessingStep::ToLuminance(
-            LuminanceFilter::create().multiplier(1.0),
+            LuminanceFilter::create().multiplier(0.4),
         ))
         .add_step(ProcessingStep::GaussianOnLuma(
-            GaussianBuilder::create(0.5, 2.25).scalar(0.5).cutoff(25.0),
+            GaussianBuilder::create(1.5, 2.25).scalar(0.4).cutoff(22.0),
         ))
         .add_step(ProcessingStep::SobelAsciiDirectional(
             SobelAscii::create()
                 .magnitude_min(20)
-                .ascii_max(0.675)
+                .ascii_max(0.85)
                 .font_size(font_size),
         ));
 

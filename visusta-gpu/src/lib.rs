@@ -54,4 +54,13 @@ impl VisustaProcessor for VisustaGPU {
     async fn overlay_layers(&self, layers: &[LayerOutput]) -> Option<LayerOutput> {
         self.cpu.overlay_layers(layers).await
     }
+
+    async fn luminance_to_ascii_br(
+        &self,
+        img: &LumaAImage,
+        filter: LuminanceAsciiFilter,
+        threshold: f32,
+    ) -> CharImage {
+        self.cpu.luminance_to_ascii_br(img, filter, threshold).await
+    }
 }

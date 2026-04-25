@@ -166,4 +166,11 @@ pub trait VisustaProcessor {
     -> CharImage;
 
     async fn overlay_layers(&self, layers: &[LayerOutput]) -> Option<LayerOutput>;
+
+    async fn luminance_to_ascii_br(
+        &self,
+        img: &LumaAImage,
+        filter: LuminanceAsciiFilter,
+        threshold: f32,
+    ) -> CharImage;
 }
