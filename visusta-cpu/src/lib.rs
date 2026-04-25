@@ -426,6 +426,89 @@ fn luminance_to_ascii(img: &LumaAImage, filter: LuminanceAsciiFilter) -> CharIma
     }
 }
 
+fn luminance_to_ascii_br(
+    img: &LumaAImage,
+    filter: LuminanceAsciiFilter,
+    threshold: f32,
+) -> CharImage {
+    const BRAILLE_BASE: u32 = 0x2800;
+
+    let width = (img.width() as usize).div_ceil(filter.font_size) * 2;
+    let height = (img.height() as usize).div_ceil(filter.font_size);
+
+    let mut char_buff = vec![0u8; width * height];
+
+    // left col rows 0-3, right col rows 0-3 — matches Unicode Braille bit layout
+    const BRAILLE_BITS: [u8; 8] = [0x01, 0x02, 0x04, 0x40, 0x08, 0x10, 0x20, 0x80];
+
+    let y_splits = [
+        filter.font_size / 4,
+        filter.font_size / 2,
+        (filter.font_size * 3) / 4,
+    ];
+
+    char_buff
+        .par_chunks_mut(width)
+        .enumerate()
+        .for_each(|(char_y, row)| {
+            for char_x in 0..width {
+                let mut buffer = [(0usize, 0usize); 8];
+
+                // Convert char coordinate to pixel coordinate
+                // char_x is doubled (0, 2, 4...), so divide by 2 to get actual char index
+                let pixel_x_start = (char_x / 2) * filter.font_size;
+                let pixel_y_start = char_y * filter.font_size;
+
+                for px in pixel_x_start..(pixel_x_start + filter.font_size) {
+                    let local_x = px - pixel_x_start;
+                    let buff_start = if local_x >= filter.font_size / 2 { 4 } else { 0 };
+
+                    for py in pixel_y_start..(pixel_y_start + filter.font_size) {
+                        let local_y = py - pixel_y_start;
+                        let (sum_luminance, count) = if local_y < y_splits[0] {
+                            &mut buffer[buff_start]
+                        } else if local_y < y_splits[1] {
+                            &mut buffer[buff_start + 1]
+                        } else if local_y < y_splits[2] {
+                            &mut buffer[buff_start + 2]
+                        } else {
+                            &mut buffer[buff_start + 3]
+                        };
+
+                        if let Some(pix) = img.get_pixel_checked(px as u32, py as u32)
+                            && pix.0[1] > 0
+                        {
+                            *count += 1;
+                            *sum_luminance += pix.0[0] as usize;
+                        }
+                    }
+                }
+
+                for (idx, (sum_luminance, count)) in buffer.into_iter().enumerate() {
+                    if (sum_luminance as f32 / count as f32) >= threshold {
+                        row[char_x] |= BRAILLE_BITS[idx];
+                    }
+                }
+            }
+        });
+
+    let mut out_buff = vec![' '; char_buff.len()];
+
+    out_buff
+        .par_iter_mut()
+        .enumerate()
+        .for_each(|(idx, out_char)| {
+            *out_char = char::from_u32(BRAILLE_BASE | char_buff[idx] as u32)
+                .expect("Invalid braille char generated");
+        });
+
+    CharImage {
+        width,
+        height,
+        data: out_buff,
+    }
+}
+
 fn sobel_ascii_directional(img: &LumaAImage, filter: SobelAscii) -> CharImage {
     let width = img.width();
     let height = img.height() as usize;
