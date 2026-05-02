@@ -1,14 +1,13 @@
 use std::f32::consts::PI;
 
-use async_trait::async_trait;
 use image::{DynamicImage, ImageBuffer, RgbaImage};
 use libm::atan2f;
 use rayon::prelude::*;
-use visusta_core::{
+use crate::{
     CharImage, LumaAImage, LuminanceAsciiFilter, LuminanceFilter, SobelAscii, SobelColorData,
-    SobelColorItem, VisustaProcessor,
-    gaussians::{GaussianBuilder, GaussianColorData, GaussianColorItem, GaussianKernelData},
-    pipeline::LayerOutput,
+    SobelColorItem,
+    gaussians::{GaussianColorData, GaussianColorItem, GaussianKernelData},
+    pipeline::{LayerOutput, PipelineErrorKind, ProcessingStep},
 };
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -22,50 +21,47 @@ pub enum DirectionAscii {
 
 pub struct VisustaCPU;
 
-#[async_trait]
-impl VisustaProcessor for VisustaCPU {
-    async fn rgba_to_luma_a(&self, img: &RgbaImage, filter: LuminanceFilter) -> LumaAImage {
-        rgb_luminance_u8(img, filter)
+impl VisustaCPU {
+    pub fn process(&self, step: &ProcessingStep, input: LayerOutput) -> Result<LayerOutput, PipelineErrorKind> {
+        match step {
+            ProcessingStep::ToLuminance(filter) => {
+                let img = input.into_rgba()?;
+                Ok(LayerOutput::LumaA(rgb_luminance_u8(&img, *filter)))
+            }
+            ProcessingStep::LumaToRgba => {
+                let img = input.into_luma()?;
+                Ok(LayerOutput::Rgba(DynamicImage::from(img).to_rgba8()))
+            }
+            ProcessingStep::SobelToColour(filter) => {
+                let img = input.into_luma()?;
+                Ok(LayerOutput::Rgba(page_to_direction_colour(&img, filter.clone())))
+            }
+            ProcessingStep::GaussianToColoured(builder, color) => {
+                let img = input.into_luma()?;
+                let kernel_data = builder.build_kernel();
+                Ok(LayerOutput::Rgba(gaussian_to_coloured(&img, kernel_data, color.clone())))
+            }
+            ProcessingStep::GaussianOnLuma(builder) => {
+                let img = input.into_luma()?;
+                let kernel_data = builder.build_kernel();
+                Ok(LayerOutput::LumaA(gaussian_on_luminance(&img, kernel_data)))
+            }
+            ProcessingStep::LuminanceToAscii(filter) => {
+                let img = input.into_luma()?;
+                Ok(LayerOutput::Char(luminance_to_ascii(&img, filter.clone())))
+            }
+            ProcessingStep::SobelAsciiDirectional(filter) => {
+                let img = input.into_luma()?;
+                Ok(LayerOutput::Char(sobel_ascii_directional(&img, filter.clone())))
+            }
+            ProcessingStep::LuminanceToAsciiBr(filter, threshold) => {
+                let img = input.into_luma()?;
+                Ok(LayerOutput::Char(luminance_to_ascii_br(&img, filter.clone(), *threshold)))
+            }
+        }
     }
 
-    async fn luma_to_rgba(&self, img: &LumaAImage) -> RgbaImage {
-        DynamicImage::from(img.clone()).to_rgba8()
-    }
-
-    async fn sobel_to_colour(&self, img: &LumaAImage, filter: SobelColorData) -> RgbaImage {
-        page_to_direction_colour(img, filter)
-    }
-
-    async fn gaussian_on_luma(&self, img: &LumaAImage, builder: GaussianBuilder) -> LumaAImage {
-        let kernel_data = builder.build_kernel();
-
-        gaussian_on_luminance(img, kernel_data)
-    }
-
-    async fn gaussian_to_coloured(
-        &self,
-        img: &LumaAImage,
-        builder: GaussianBuilder,
-        filter: GaussianColorData,
-    ) -> RgbaImage {
-        let kernel_data = builder.build_kernel();
-
-        gaussian_to_coloured(img, kernel_data, filter)
-    }
-
-    async fn luminance_to_ascii(
-        &self,
-        img: &LumaAImage,
-        filter: LuminanceAsciiFilter,
-    ) -> CharImage {
-        luminance_to_ascii(img, filter)
-    }
-
-    async fn sobel_ascii_directional(&self, img: &LumaAImage, filter: SobelAscii) -> CharImage {
-        sobel_ascii_directional(img, filter)
-    }
-
-    async fn overlay_layers(&self, layers: &[LayerOutput]) -> Option<LayerOutput> {
+    pub fn overlay(&self, layers: &[LayerOutput]) -> Option<LayerOutput> {
         if layers.is_empty() {
             return None;
         }
@@ -107,15 +103,6 @@ impl VisustaProcessor for VisustaCPU {
                 Some(LayerOutput::Char(overlay_all_char(&char_layers)))
             }
         }
-    }
-
-    async fn luminance_to_ascii_br(
-        &self,
-        img: &LumaAImage,
-        filter: LuminanceAsciiFilter,
-        threshold: f32,
-    ) -> CharImage {
-        luminance_to_ascii_br(img, filter, threshold)
     }
 }
 
@@ -375,9 +362,9 @@ fn luminance_to_ascii(img: &LumaAImage, filter: LuminanceAsciiFilter) -> CharIma
             for char_x in 0..width {
                 if char_x % 2 != 0 {
                     match filter.space_type {
-                        visusta_core::AsciiSpaceType::Duplicate => row[char_x] = row[char_x - 1],
-                        visusta_core::AsciiSpaceType::Space => continue,
-                        visusta_core::AsciiSpaceType::Raw(v) => row[char_x] = v,
+                        crate::AsciiSpaceType::Duplicate => row[char_x] = row[char_x - 1],
+                        crate::AsciiSpaceType::Space => continue,
+                        crate::AsciiSpaceType::Raw(v) => row[char_x] = v,
                     }
                     continue;
                 }
@@ -564,9 +551,9 @@ fn sobel_ascii_directional(img: &LumaAImage, filter: SobelAscii) -> CharImage {
             for char_x in 0..new_width {
                 if char_x % 2 != 0 {
                     match filter.space_type {
-                        visusta_core::AsciiSpaceType::Duplicate => row[char_x] = row[char_x - 1],
-                        visusta_core::AsciiSpaceType::Space => continue,
-                        visusta_core::AsciiSpaceType::Raw(v) => row[char_x] = v,
+                        crate::AsciiSpaceType::Duplicate => row[char_x] = row[char_x - 1],
+                        crate::AsciiSpaceType::Space => continue,
+                        crate::AsciiSpaceType::Raw(v) => row[char_x] = v,
                     }
                     continue;
                 }

@@ -1,6 +1,9 @@
 use rayon::prelude::*;
 
-use crate::composer::{ProcessorPage, ProcessorPageSignal};
+use super::composer::{ProcessorPage, ProcessorPageSignal};
+
+#[derive(Debug)]
+pub struct LuminanceAsciiMeta;
 
 pub struct LuminanceBuff {
     pub buff: Vec<u8>,

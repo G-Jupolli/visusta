@@ -2,7 +2,6 @@ use image::RgbaImage;
 
 use crate::{
     CharImage, LumaAImage, LuminanceAsciiFilter, LuminanceFilter, SobelAscii, SobelColorData,
-    VisustaProcessor,
     gaussians::{GaussianBuilder, GaussianColorData},
 };
 
@@ -57,77 +56,19 @@ pub enum ProcessingStep {
 impl ProcessingStep {
     fn signature(&self) -> (DataType, DataType) {
         match self {
-            // RgbaImage -> LumaAImage
             ProcessingStep::ToLuminance(_) => (DataType::Rgba, DataType::LumaA),
-
-            // LumaAImage -> RgbaImage
             ProcessingStep::LumaToRgba => (DataType::LumaA, DataType::Rgba),
             ProcessingStep::SobelToColour(_) => (DataType::LumaA, DataType::Rgba),
             ProcessingStep::GaussianToColoured(_, _) => (DataType::LumaA, DataType::Rgba),
-
-            // LumaAImage -> LumaAImage
             ProcessingStep::GaussianOnLuma(_) => (DataType::LumaA, DataType::LumaA),
-
-            // LumaAImage -> CharImage
             ProcessingStep::LuminanceToAscii(_) => (DataType::LumaA, DataType::Char),
             ProcessingStep::SobelAsciiDirectional(_) => (DataType::LumaA, DataType::Char),
             ProcessingStep::LuminanceToAsciiBr(..) => (DataType::LumaA, DataType::Char),
         }
     }
 
-    async fn execute(
-        &self,
-        input: LayerOutput,
-        processor: &dyn VisustaProcessor,
-    ) -> Result<LayerOutput, PipelineErrorKind> {
-        let output = match self {
-            ProcessingStep::ToLuminance(filter) => {
-                let img = input.into_rgba()?;
-                LayerOutput::LumaA(processor.rgba_to_luma_a(&img, *filter).await)
-            }
-            ProcessingStep::LumaToRgba => {
-                let img = input.into_luma()?;
-                LayerOutput::Rgba(processor.luma_to_rgba(&img).await)
-            }
-            ProcessingStep::SobelToColour(filter) => {
-                let img = input.into_luma()?;
-                LayerOutput::Rgba(processor.sobel_to_colour(&img, filter.clone()).await)
-            }
-            ProcessingStep::GaussianToColoured(builder, filter) => {
-                let img = input.into_luma()?;
-                LayerOutput::Rgba(
-                    processor
-                        .gaussian_to_coloured(&img, builder.clone(), filter.clone())
-                        .await,
-                )
-            }
-            ProcessingStep::GaussianOnLuma(builder) => {
-                let img = input.into_luma()?;
-                LayerOutput::LumaA(processor.gaussian_on_luma(&img, builder.clone()).await)
-            }
-            ProcessingStep::LuminanceToAscii(filter) => {
-                let img = input.into_luma()?;
-                LayerOutput::Char(processor.luminance_to_ascii(&img, filter.clone()).await)
-            }
-            ProcessingStep::SobelAsciiDirectional(filter) => {
-                let img = input.into_luma()?;
-                LayerOutput::Char(
-                    processor
-                        .sobel_ascii_directional(&img, filter.clone())
-                        .await,
-                )
-            }
-            ProcessingStep::LuminanceToAsciiBr(filter, threshold) => {
-                let img = input.into_luma()?;
-                LayerOutput::Char(
-                    processor
-                        .luminance_to_ascii_br(&img, filter.clone(), *threshold)
-                        .await,
-                )
-            }
-        };
-
-        Ok(output)
+    fn execute(&self, input: LayerOutput, processor: &crate::Processor) -> Result<LayerOutput, PipelineErrorKind> {
+        processor.process(self, input)
     }
 }
 
@@ -139,10 +80,7 @@ pub struct Layer {
 
 impl Layer {
     pub fn new() -> Self {
-        Layer {
-            steps: Vec::new(),
-            output_type: DataType::Rgba,
-        }
+        Layer { steps: Vec::new(), output_type: DataType::Rgba }
     }
 
     pub fn add_step(mut self, step: ProcessingStep) -> Self {
@@ -172,10 +110,7 @@ impl Layer {
                     expected: DataType::Rgba,
                     got: prev_input,
                 },
-                location: PipelineLocation::Step {
-                    layer: self_idx,
-                    step: 0,
-                },
+                location: PipelineLocation::Step { layer: self_idx, step: 0 },
             });
         }
 
@@ -184,35 +119,21 @@ impl Layer {
             step += 1;
             if out != next_input {
                 return Err(PipelineError {
-                    kind: PipelineErrorKind::TypeMismatch {
-                        expected: out,
-                        got: next_input,
-                    },
-                    location: PipelineLocation::Step {
-                        layer: self_idx,
-                        step,
-                    },
+                    kind: PipelineErrorKind::TypeMismatch { expected: out, got: next_input },
+                    location: PipelineLocation::Step { layer: self_idx, step },
                 });
             }
-
             out = next_output;
         }
 
         Ok(out)
     }
 
-    async fn execute(
-        &self,
-        processor: &dyn VisustaProcessor,
-        img: &RgbaImage,
-    ) -> Result<LayerOutput, (PipelineErrorKind, usize)> {
+    fn execute(&self, processor: &crate::Processor, img: &RgbaImage) -> Result<LayerOutput, (PipelineErrorKind, usize)> {
         let mut current = LayerOutput::Rgba(img.clone());
 
         for (step_index, step) in self.steps.iter().enumerate() {
-            current = step
-                .execute(current, processor)
-                .await
-                .map_err(|kind| (kind, step_index))?;
+            current = step.execute(current, processor).map_err(|kind| (kind, step_index))?;
         }
 
         Ok(current)
@@ -245,7 +166,6 @@ impl Pipeline {
         };
 
         let expected_out = prev.validate(0)?;
-
         let mut layer_idx = 0;
 
         while let Some(layer) = layers.next() {
@@ -254,10 +174,7 @@ impl Pipeline {
 
             if expected_out != out {
                 return Err(PipelineError {
-                    kind: PipelineErrorKind::LayerOutputMismatch {
-                        expected: expected_out,
-                        got: out,
-                    },
+                    kind: PipelineErrorKind::LayerOutputMismatch { expected: expected_out, got: out },
                     location: PipelineLocation::Layer { layer: layer_idx },
                 });
             }
@@ -266,27 +183,17 @@ impl Pipeline {
         Ok(expected_out)
     }
 
-    pub async fn execute(
-        &self,
-        img: &RgbaImage,
-        processor: &dyn VisustaProcessor,
-    ) -> Result<Vec<LayerOutput>, PipelineError> {
+    pub fn execute(&self, img: &RgbaImage, processor: &crate::Processor) -> Result<Vec<LayerOutput>, PipelineError> {
         self.validate()?;
 
         let mut outputs = Vec::with_capacity(self.layers.len());
 
         for (layer_index, layer) in self.layers.iter().enumerate() {
             outputs.push(
-                layer
-                    .execute(processor, img)
-                    .await
-                    .map_err(|(kind, step_idx)| PipelineError {
-                        kind,
-                        location: PipelineLocation::Step {
-                            layer: layer_index,
-                            step: step_idx,
-                        },
-                    })?,
+                layer.execute(processor, img).map_err(|(kind, step_idx)| PipelineError {
+                    kind,
+                    location: PipelineLocation::Step { layer: layer_index, step: step_idx },
+                })?,
             );
         }
 

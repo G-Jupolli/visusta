@@ -1,14 +1,15 @@
-[workspace]
-members = ["visusta",
-    "visusta-core",
-    "visusta-cpu",
-    "visusta-gpu",
-]
-resolver = "3"
+[package]
+name = "visusta-core"
+version = "0.1.0"
+edition = "2024"
 
-[workspace.dependencies]
-anyhow = "1.0.100"
+[dependencies]
 image = { version = "0.25.8", features = ["rayon", "serde"] }
 libm = "0.2.15"
-rayon = "1.11.0"
 log = "0.4.29"
+rayon = "1.11.0"
+wgpu = "27.0.1"
+
+[dev-dependencies]
+anyhow = "1.0.100"
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros"] }

@@ -1,11 +1,12 @@
-use async_trait::async_trait;
-use image::{ImageBuffer, LumaA, RgbaImage};
+use image::{ImageBuffer, LumaA};
 
-use crate::gaussians::{GaussianBuilder, GaussianColorData};
-use crate::pipeline::LayerOutput;
+pub type LumaAImage = ImageBuffer<LumaA<u8>, Vec<u8>>;
 
-pub mod gaussians;
-pub mod pipeline;
+pub struct CharImage {
+    pub width: usize,
+    pub height: usize,
+    pub data: Vec<char>,
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct LuminanceFilter {
@@ -15,10 +16,7 @@ pub struct LuminanceFilter {
 
 impl LuminanceFilter {
     pub fn create() -> Self {
-        LuminanceFilter {
-            multiplier: 1.0,
-            min: 0,
-        }
+        LuminanceFilter { multiplier: 1.0, min: 0 }
     }
 
     pub fn multiplier(mut self, multiplier: f32) -> Self {
@@ -50,13 +48,6 @@ pub enum SobelColorItem {
     None,
 }
 
-#[derive(Debug, Clone)]
-pub struct LuminanceAsciiFilter {
-    pub font_size: usize,
-    pub chars: [char; 10],
-    pub space_type: AsciiSpaceType,
-}
-
 #[derive(Debug, Clone, Copy)]
 pub enum AsciiSpaceType {
     Duplicate,
@@ -65,16 +56,14 @@ pub enum AsciiSpaceType {
 }
 
 #[derive(Debug, Clone)]
-pub struct SobelAscii {
+pub struct LuminanceAsciiFilter {
     pub font_size: usize,
-    pub magnitude_min: u8,
-    pub ascii_max: f32,
-    pub chars: [char; 4],
+    pub chars: [char; 10],
     pub space_type: AsciiSpaceType,
 }
 
 impl LuminanceAsciiFilter {
-    pub fn create() -> LuminanceAsciiFilter {
+    pub fn create() -> Self {
         LuminanceAsciiFilter {
             font_size: 10,
             chars: [' ', '.', ';', 'c', 'o', 'P', '0', '?', '@', '#'],
@@ -96,6 +85,15 @@ impl LuminanceAsciiFilter {
         self.space_type = space_type;
         self
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct SobelAscii {
+    pub font_size: usize,
+    pub magnitude_min: u8,
+    pub ascii_max: f32,
+    pub chars: [char; 4],
+    pub space_type: AsciiSpaceType,
 }
 
 impl SobelAscii {
@@ -133,44 +131,4 @@ impl SobelAscii {
         self.space_type = space_type;
         self
     }
-}
-
-pub type LumaAImage = ImageBuffer<LumaA<u8>, Vec<u8>>;
-
-pub struct CharImage {
-    pub width: usize,
-    pub height: usize,
-    pub data: Vec<char>,
-}
-
-#[async_trait]
-pub trait VisustaProcessor {
-    async fn rgba_to_luma_a(&self, img: &RgbaImage, filter: LuminanceFilter) -> LumaAImage;
-
-    async fn luma_to_rgba(&self, img: &LumaAImage) -> RgbaImage;
-
-    async fn sobel_to_colour(&self, img: &LumaAImage, filter: SobelColorData) -> RgbaImage;
-
-    async fn sobel_ascii_directional(&self, img: &LumaAImage, filter: SobelAscii) -> CharImage;
-
-    async fn gaussian_on_luma(&self, img: &LumaAImage, builder: GaussianBuilder) -> LumaAImage;
-
-    async fn gaussian_to_coloured(
-        &self,
-        img: &LumaAImage,
-        builder: GaussianBuilder,
-        filter: GaussianColorData,
-    ) -> RgbaImage;
-
-    async fn luminance_to_ascii(&self, img: &LumaAImage, filter: LuminanceAsciiFilter)
-    -> CharImage;
-
-    async fn overlay_layers(&self, layers: &[LayerOutput]) -> Option<LayerOutput>;
-
-    async fn luminance_to_ascii_br(
-        &self,
-        img: &LumaAImage,
-        filter: LuminanceAsciiFilter,
-        threshold: f32,
-    ) -> CharImage;
 }

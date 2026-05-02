@@ -4,10 +4,10 @@ use rayon::{
 };
 
 use crate::{
-    GaussianKernelData,
-    sobel::{SobelAscii, SobelColorData},
-    utils::LuminanceAsciiMeta,
+    SobelAscii, SobelColorData,
+    gaussians::GaussianKernelData,
 };
+use super::utils::LuminanceAsciiMeta;
 
 /// I still need to figure out the correct way to do this.
 ///
@@ -112,33 +112,6 @@ impl ProcessorPage {
             // [r2, g2, b2, r1, g1, b1]
             ProcessorPageSignal::RGB => {
                 todo!("Flip Y on RGB Page");
-                // out_buff
-                //     .par_chunks_mut(self.width)
-                //     .enumerate()
-                //     .for_each(|(y, row)| {
-                //         let mut left = y * self.width;
-
-                //         let mut step = 0;
-
-                //         for x in (left..(left + self.width.div_ceil(3))).rev() {
-                //             let out = step + 3;
-
-                //             row[out] = self.data[left + x * 3];
-
-                //             step += 1;
-                //         }
-
-                //         let mut right = left + self.width - 1;
-
-                //         while right >= left {
-                //             row[step] = self.data[right];
-                //             row[(self.width - step) - 1] = self.data[left];
-
-                //             left += 1;
-                //             right -= 1;
-                //             step += 1;
-                //         }
-                //     });
             }
         }
 
@@ -248,38 +221,6 @@ impl ProcessorComposer {
         }
 
         let _z_children_len = abs_children.len();
-
-        // for (stack_idx, curr_idx) in abs_children.into_iter().enumerate() {
-        //     let meta_char = if stack_idx == z_children_len - 1 {
-        //         '├'
-        //     } else {
-        //         '└'
-        //     };
-
-        //     res.push(format!("{meta_char} {curr_idx}"));
-
-        //     let curr = self.steps.get(curr_idx).expect("parent");
-
-        //     let children = curr.children.iter().filter_map(|idx| {
-        //         let child = self.steps.get(curr_idx).expect("chile");
-
-        //         if child.is_active { Some(idx) } else { None }
-        //     });
-
-        //     let children: Vec<usize> = self
-        //         .steps
-        //         .iter()
-        //         .enumerate()
-        //         .skip(abs_parent + 1)
-        //         .filter_map(|(idx, c)| {
-        //             if c.parent == abs_parent {
-        //                 Some(idx)
-        //             } else {
-        //                 None
-        //             }
-        //         })
-        //         .collect();
-        // }
 
         res
     }

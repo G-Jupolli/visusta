@@ -2,13 +2,12 @@ use std::path::Path;
 
 use image::{DynamicImage, RgbaImage, imageops::FilterType};
 use visusta_core::{
-    LuminanceAsciiFilter, LuminanceFilter, SobelAscii, SobelColorData, SobelColorItem,
-    VisustaProcessor,
-    gaussians::{GaussianBuilder, GaussianColorData, GaussianColorItem},
-    pipeline::{Layer, LayerOutput, Pipeline, ProcessingStep},
+    get_processor, Processor,
+    GaussianBuilder, GaussianColorData, GaussianColorItem,
+    Layer, LayerOutput, Pipeline, ProcessingStep,
+    LuminanceAsciiFilter, LuminanceFilter,
+    SobelAscii, SobelColorData, SobelColorItem,
 };
-use visusta_cpu::VisustaCPU;
-use visusta_gpu::VisustaGPU;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -18,63 +17,20 @@ async fn main() -> anyhow::Result<()> {
         anyhow::bail!("Usage: {} <image_path>", args[0]);
     }
 
-    let path = Path::new(&args[1]);
-
-    let base_img = image::open(path)?
-        // Sizings
-        // .resize(944, 531, FilterType::Lanczos3)
+    let img = image::open(Path::new(&args[1]))?
         .resize(1280, 720, FilterType::Lanczos3)
-    // .resize(2560, 1440, FilterType::Lanczos3)
-    //buff
-    ;
-    let img = base_img.to_rgba8();
+        .to_rgba8();
 
-    let processor = get_image_processor().await;
+    let processor = get_processor().await;
 
-    run_pipeline_process(&img, processor.as_ref()).await?;
+    run_pipeline_process(&img, &processor)?;
 
     Ok(())
 }
 
-pub async fn get_image_processor() -> Box<dyn VisustaProcessor> {
-    let gpu_available = detect_gpu().await;
-
-    if gpu_available {
-        println!("GPU detected");
-        Box::new(VisustaGPU { cpu: VisustaCPU })
-    } else {
-        println!("No GPU detected, using CPU processor");
-        Box::new(VisustaCPU)
-    }
-}
-
-async fn detect_gpu() -> bool {
-    let instance = wgpu::Instance::default();
-
-    let adapter = instance
-        .request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
-            compatible_surface: None,
-            force_fallback_adapter: false,
-        })
-        .await;
-
-    println!("GPU adapter {adapter:?}");
-
-    adapter.is_ok()
-}
-
 fn create_ascii_pipeline() -> Pipeline {
     let ascii_filter = LuminanceAsciiFilter::create();
-
     let font_size = 10;
-
-    let mut chars = ascii_filter.chars;
-    // chars[1] = ' ';
-    // chars[2] = ' ';
-    // chars[2] = ';';
-    // chars[3] = ';';
-    // chars[4] = ';';
 
     let background = Layer::new()
         .add_step(ProcessingStep::ToLuminance(
@@ -84,12 +40,8 @@ fn create_ascii_pipeline() -> Pipeline {
             GaussianBuilder::create(1.8, 2.25).scalar(0.5).cutoff(20.0),
         ))
         .add_step(ProcessingStep::LuminanceToAscii(
-            ascii_filter.chars(chars).font_size(font_size),
+            ascii_filter.font_size(font_size),
         ));
-    // .add_step(ProcessingStep::LuminanceToAsciiBr(
-    // ascii_filter.font_size(font_size),
-    // 256.0 * 0.375,
-    // ));
 
     let foreground = Layer::new()
         .add_step(ProcessingStep::ToLuminance(
@@ -106,7 +58,6 @@ fn create_ascii_pipeline() -> Pipeline {
         ));
 
     Pipeline::new()
-        // .add_layer(background)
         .add_layer(background)
         .add_layer(foreground)
 }
@@ -153,27 +104,25 @@ fn _create_main_pipeline() -> Pipeline {
         .add_layer(foreground)
 }
 
-async fn run_pipeline_process(
+fn run_pipeline_process(
     img: &RgbaImage,
-    processor: &dyn VisustaProcessor,
+    processor: &Processor,
 ) -> anyhow::Result<()> {
-    // let pipeline = create_main_pipeline();
     let pipeline = create_ascii_pipeline();
 
-    let outputs = pipeline.execute(img, processor).await.map_err(|err| {
+    let outputs = pipeline.execute(img, processor).map_err(|err| {
         println!("Pipeline Failure {err:?}");
-        anyhow::anyhow!("Failed to do pipeline")
+        anyhow::anyhow!("Failed to run pipeline")
     })?;
 
     let result = processor
-        .overlay_layers(&outputs)
-        .await
+        .overlay(&outputs)
         .ok_or_else(|| anyhow::anyhow!("No layers to composite or type mismatch"))?;
 
     match result {
         LayerOutput::Rgba(rgba) => {
             rgba.save("./pipeline_output.png")?;
-            println!("Pipeline output saved to ./pipeline_output.png");
+            println!("Saved to ./pipeline_output.png");
         }
         LayerOutput::Char(chars) => {
             for row in chars.data.chunks(chars.width) {
@@ -184,7 +133,7 @@ async fn run_pipeline_process(
             DynamicImage::from(luma)
                 .to_rgba8()
                 .save("./pipeline_output.png")?;
-            println!("Pipeline output saved to ./pipeline_output.png");
+            println!("Saved to ./pipeline_output.png");
         }
     }
 
